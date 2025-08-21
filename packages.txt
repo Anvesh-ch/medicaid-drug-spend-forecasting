@@ -1,1 +1,4 @@
 openjdk-11-jdk
+cmake
+build-essential
+pkg-config
