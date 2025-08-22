@@ -96,24 +96,35 @@ def calculate_trend_features(df):
     """Calculate trend features for the sample data."""
     
     # Sort by state, drug, and quarter
-    df = df.sort_values(['state', 'product_name_fda10', 'quarter_start'])
+    df = df.sort_values(['state', 'product_name_fda10', 'quarter_start']).reset_index(drop=True)
     
     # Calculate quarter-over-quarter changes
     df['qoq_spend_change'] = df.groupby(['state', 'product_name_fda10'])['total_spend'].pct_change()
-    df['qoq_units_change'] = df.groupby(['state', 'product_name_fda10'])['total_spend'].pct_change()
+    df['qoq_units_change'] = df.groupby(['state', 'product_name_fda10'])['total_units'].pct_change()
     df['qoq_scripts_change'] = df.groupby(['state', 'product_name_fda10'])['total_scripts'].pct_change()
     
-    # Calculate rolling statistics (4-quarter window)
-    df['rolling_4q_spend_avg'] = df.groupby(['state', 'product_name_fda10'])['total_spend'].rolling(4, min_periods=1).mean().reset_index(0, drop=True)
-    df['rolling_4q_spend_std'] = df.groupby(['state', 'product_name_fda10'])['total_spend'].rolling(4, min_periods=1).std().reset_index(0, drop=True)
+    # Calculate rolling statistics (4-quarter window) - fix indexing issue
+    rolling_avg = df.groupby(['state', 'product_name_fda10'])['total_spend'].rolling(4, min_periods=1).mean()
+    rolling_std = df.groupby(['state', 'product_name_fda10'])['total_spend'].rolling(4, min_periods=1).std()
+    
+    # Reset index to align with original DataFrame
+    df['rolling_4q_spend_avg'] = rolling_avg.reset_index(level=[0,1], drop=True)
+    df['rolling_4q_spend_std'] = rolling_std.reset_index(level=[0,1], drop=True)
     
     # Coefficient of variation
     df['cv_spend'] = df['rolling_4q_spend_std'] / df['rolling_4q_spend_avg']
     
-    # Rolling growth rates
-    df['rolling_4q_growth_spend'] = df.groupby(['state', 'product_name_fda10'])['total_spend'].rolling(4, min_periods=1).apply(
-        lambda x: (x.iloc[-1] - x.iloc[0]) / x.iloc[0] if x.iloc[0] != 0 else 0
-    ).reset_index(0, drop=True)
+    # Rolling growth rates - fix indexing issue
+    def calculate_growth(group):
+        if len(group) >= 4:
+            return (group.iloc[-1] - group.iloc[0]) / group.iloc[0] if group.iloc[0] != 0 else 0
+        else:
+            return 0
+    
+    rolling_growth = df.groupby(['state', 'product_name_fda10'])['total_spend'].rolling(4, min_periods=1).apply(
+        calculate_growth, raw=True
+    )
+    df['rolling_4q_growth_spend'] = rolling_growth.reset_index(level=[0,1], drop=True)
     
     return df
 
