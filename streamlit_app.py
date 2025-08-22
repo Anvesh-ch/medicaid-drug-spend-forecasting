@@ -115,9 +115,9 @@ def calculate_trend_features(df):
     df['cv_spend'] = df['rolling_4q_spend_std'] / df['rolling_4q_spend_avg']
     
     # Rolling growth rates - fix indexing issue
-    def calculate_growth(group):
-        if len(group) >= 4:
-            return (group.iloc[-1] - group.iloc[0]) / group.iloc[0] if group.iloc[0] != 0 else 0
+    def calculate_growth(values):
+        if len(values) >= 4:
+            return (values[-1] - values[0]) / values[0] if values[0] != 0 else 0
         else:
             return 0
     
